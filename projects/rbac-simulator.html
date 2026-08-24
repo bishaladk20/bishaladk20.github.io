@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBAC / ABAC Access Simulator — Bishal Adhikari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F1419; --panel: #161D26; --panel-line: #232D39;
+  --text: #E4E9EE; --text-muted: #7C8B99;
+  --allow: #4FD68C; --warn: #E8A94C; --deny: #E5605A; --link: #5B9DD9;
+  --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); line-height: 1.5; padding: 2.5rem 1.5rem 5rem; }
+a { color: var(--link); }
+.wrap { max-width: 880px; margin: 0 auto; }
+.back { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+.back:hover { color: var(--link); }
+h1 { font-family: var(--font-display); font-size: 1.8rem; margin: 1rem 0 0.4rem; }
+.sub { color: var(--text-muted); margin: 0 0 2.2rem; max-width: 65ch; }
+
+.panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 1.75rem; margin-bottom: 1.5rem; }
+.panel h2 { font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--link); margin: 0 0 1.25rem; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+label { display: block; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+select {
+  width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--panel-line);
+  border-radius: 6px; padding: 0.65rem 0.75rem; font-family: var(--font-body); font-size: 0.95rem;
+}
+select:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+.extra-attrs { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--panel-line); }
+.extra-attrs label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.extra-attrs input[type="checkbox"] { accent-color: var(--link); }
+
+.evaluate-btn {
+  margin-top: 1.5rem; font-family: var(--font-mono); font-size: 0.9rem;
+  background: var(--link); color: #0F1419; border: none; padding: 0.75rem 1.4rem;
+  border-radius: 7px; cursor: pointer; font-weight: 500;
+}
+.evaluate-btn:hover { background: #6FADE0; }
+
+.result { display: none; }
+.result.show { display: block; }
+.verdict {
+  display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem;
+  border-radius: 8px; font-family: var(--font-mono); font-size: 1.05rem; font-weight: 600; margin-bottom: 1rem;
+}
+.verdict-ALLOW { background: rgba(79,214,140,0.12); color: var(--allow); border: 1px solid rgba(79,214,140,0.3); }
+.verdict-DENY { background: rgba(229,96,90,0.12); color: var(--deny); border: 1px solid rgba(229,96,90,0.3); }
+.verdict-STEPUP { background: rgba(232,169,76,0.12); color: var(--warn); border: 1px solid rgba(232,169,76,0.3); }
+
+.trace { font-family: var(--font-mono); font-size: 0.85rem; }
+.trace-row { display: flex; gap: 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--panel-line); }
+.trace-row:first-child { border-top: none; }
+.trace-icon { width: 1.1rem; flex-shrink: 0; }
+.trace-icon.pass { color: var(--allow); }
+.trace-icon.fail { color: var(--text-muted); }
+.trace-text { color: var(--text-muted); }
+.trace-text b { color: var(--text); font-weight: 500; }
+
+.policy-list { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-muted); }
+.policy-list li { margin-bottom: 0.65rem; }
+.policy-list code { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html#projects">← back to portfolio</a>
+  <h1>RBAC / ABAC Access Simulator</h1>
+  <p class="sub">Select a user, a resource, and an action. The engine walks a real policy set — role bindings plus a couple of attribute-based conditions — and shows exactly which rule produced the decision.</p>
+
+  <div class="panel">
+    <h2>Access request</h2>
+    <div class="form-grid">
+      <div>
+        <label for="user">User</label>
+        <select id="user"></select>
+      </div>
+      <div>
+        <label for="resource">Resource</label>
+        <select id="resource"></select>
+      </div>
+      <div>
+        <label for="action">Action</label>
+        <select id="action"></select>
+      </div>
+      <div>
+        <label for="context">Session context</label>
+        <select id="context">
+          <option value="office">Corporate network, MFA verified</option>
+          <option value="remote">Remote network, MFA verified</option>
+          <option value="unverified">Remote network, MFA NOT verified</option>
+        </select>
+      </div>
+    </div>
+    <button class="evaluate-btn" onclick="evaluate()">Evaluate access</button>
+  </div>
+
+  <div class="panel result" id="resultPanel">
+    <h2>Decision</h2>
+    <div id="verdict"></div>
+    <div class="trace" id="trace"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Policy set (what the engine is evaluating against)</h2>
+    <ul class="policy-list" id="policyList"></ul>
+  </div>
+</div>
+
+<script>
+// --- Data model ---
+const USERS = {
+  'j.chen':      { role: 'engineer',    dept: 'platform' },
+  'm.okafor':    { role: 'finance-mgr', dept: 'finance'  },
+  's.patel':     { role: 'contractor',  dept: 'platform' },
+  'r.diaz':      { role: 'admin',       dept: 'security' },
+  'a.novak':     { role: 'analyst',     dept: 'finance'  },
+};
+
+const RESOURCES = ['prod-database', 'finance-erp', 'admin-console', 'hr-records', 'vault-secrets'];
+const ACTIONS = ['read', 'write', 'approve', 'delete'];
+
+// role -> { resource: [allowed actions] }
+const ROLE_POLICIES = {
+  'engineer':    { 'prod-database': ['read','write'], 'vault-secrets': ['read'] },
+  'finance-mgr': { 'finance-erp': ['read','write','approve'] },
+  'contractor':  { 'prod-database': ['read'] },
+  'admin':       { 'prod-database': ['read','write','delete'], 'admin-console': ['read','write','delete'], 'vault-secrets': ['read','write'] },
+  'analyst':     { 'finance-erp': ['read'] },
+};
+
+// Resources that require step-up MFA regardless of role, if session isn't already MFA-verified in this context
+const SENSITIVE_RESOURCES = ['vault-secrets', 'admin-console', 'hr-records'];
+
+// Actions that always require corporate network (deny outright from remote), simulating a real conditional access rule
+const NETWORK_RESTRICTED = { 'vault-secrets': ['write','delete'], 'admin-console': ['delete'] };
+
+function populateSelect(id, items, labels) {
+  const el = document.getElementById(id);
+  el.innerHTML = items.map(i => `<option value="${i}">${labels ? labels[i] : i}</option>`).join('');
+}
+
+populateSelect('user', Object.keys(USERS));
+populateSelect('resource', RESOURCES);
+populateSelect('action', ACTIONS);
+
+function renderPolicyList() {
+  const list = document.getElementById('policyList');
+  let html = '';
+  for (const [role, perms] of Object.entries(ROLE_POLICIES)) {
+    const parts = Object.entries(perms).map(([res, acts]) => `<code>${res}</code>: [${acts.join(', ')}]`).join('; ');
+    html += `<li><b>${role}</b> → ${parts}</li>`;
+  }
+  html += `<li style="margin-top:0.75rem;"><b>Conditional access:</b> <code>${SENSITIVE_RESOURCES.join(', ')}</code> require MFA verification in-session.</li>`;
+  html += `<li><b>Network restriction:</b> writes/deletes on <code>vault-secrets</code> and deletes on <code>admin-console</code> are blocked from remote networks entirely, even with MFA.</li>`;
+  list.innerHTML = html;
+}
+renderPolicyList();
+
+function trace(icon, text) {
+  return `<div class="trace-row"><span class="trace-icon ${icon}">${icon === 'pass' ? '✓' : '·'}</span><span class="trace-text">${text}</span></div>`;
+}
+
+function evaluate() {
+  const userId = document.getElementById('user').value;
+  const resource = document.getElementById('resource').value;
+  const action = document.getElementById('action').value;
+  const context = document.getElementById('context').value;
+
+  const user = USERS[userId];
+  const rolePerms = ROLE_POLICIES[user.role] || {};
+  const allowedActions = rolePerms[resource] || [];
+  const roleAllows = allowedActions.includes(action);
+
+  let traceHtml = '';
+  traceHtml += trace(roleAllows ? 'pass' : 'fail',
+    `Role <b>${user.role}</b> ${roleAllows ? 'grants' : 'does not grant'} <b>${action}</b> on <b>${resource}</b>.`);
+
+  if (!roleAllows) {
+    return renderVerdict('DENY', `No role binding permits <b>${userId}</b> (${user.role}) to <b>${action}</b> on <b>${resource}</b>.`, traceHtml);
+  }
+
+  // Conditional access: sensitive resources need MFA
+  const needsMfa = SENSITIVE_RESOURCES.includes(resource);
+  const mfaVerified = context !== 'unverified';
+  if (needsMfa) {
+    traceHtml += trace(mfaVerified ? 'pass' : 'fail',
+      `<b>${resource}</b> is a sensitive resource requiring MFA — session is ${mfaVerified ? 'verified' : 'NOT verified'}.`);
+    if (!mfaVerified) {
+      return renderVerdict('STEPUP', `Role permits the action, but <b>${resource}</b> requires a fresh MFA challenge before proceeding.`, traceHtml);
+    }
+  }
+
+  // Network restriction check
+  const restrictedActions = NETWORK_RESTRICTED[resource] || [];
+  const isRestrictedAction = restrictedActions.includes(action);
+  const onCorpNetwork = context === 'office';
+  if (isRestrictedAction) {
+    traceHtml += trace(onCorpNetwork ? 'pass' : 'fail',
+      `<b>${action}</b> on <b>${resource}</b> requires the corporate network — current session is ${onCorpNetwork ? 'on-network' : 'remote'}.`);
+    if (!onCorpNetwork) {
+      return renderVerdict('DENY', `Conditional access policy blocks <b>${action}</b> on <b>${resource}</b> from remote networks, regardless of role or MFA.`, traceHtml);
+    }
+  }
+
+  return renderVerdict('ALLOW', `<b>${userId}</b> (${user.role}) is permitted to <b>${action}</b> on <b>${resource}</b> under the current session context.`, traceHtml);
+}
+
+function renderVerdict(status, reason, traceHtml) {
+  const panel = document.getElementById('resultPanel');
+  panel.classList.add('show');
+  const label = status === 'STEPUP' ? 'STEP-UP REQUIRED' : status;
+  document.getElementById('verdict').innerHTML =
+    `<div class="verdict verdict-${status}">${label === 'ALLOW' ? '✓' : label === 'DENY' ? '✕' : '⚠'} &nbsp;${label}</div><p style="color:var(--text-muted); margin: 0 0 1rem; font-size:0.92rem;">${reason}</p>`;
+  document.getElementById('trace').innerHTML = traceHtml;
+}
+
+// Run once on load with defaults
+evaluate();
+</script>
+</body>
+</html>

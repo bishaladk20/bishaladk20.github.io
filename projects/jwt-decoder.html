@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JWT Decoder & Validator — Bishal Adhikari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F1419; --panel: #161D26; --panel-line: #232D39;
+  --text: #E4E9EE; --text-muted: #7C8B99;
+  --allow: #4FD68C; --warn: #E8A94C; --deny: #E5605A; --link: #5B9DD9;
+  --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); line-height: 1.5; padding: 2.5rem 1.5rem 5rem; }
+a { color: var(--link); }
+.wrap { max-width: 880px; margin: 0 auto; }
+.back { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+.back:hover { color: var(--link); }
+h1 { font-family: var(--font-display); font-size: 1.8rem; margin: 1rem 0 0.4rem; }
+.sub { color: var(--text-muted); margin: 0 0 2.2rem; max-width: 65ch; }
+.privacy-note { font-family: var(--font-mono); font-size: 0.78rem; color: var(--allow); margin-bottom: 2rem; }
+
+.panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px; padding: 1.75rem; margin-bottom: 1.5rem; }
+.panel h2 { font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--link); margin: 0 0 1.25rem; }
+
+textarea {
+  width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--panel-line);
+  border-radius: 6px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.85rem;
+  min-height: 110px; resize: vertical;
+}
+textarea:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+.sample-btn {
+  margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.8rem;
+  background: transparent; color: var(--link); border: 1px solid var(--panel-line);
+  padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer;
+}
+.sample-btn:hover { border-color: var(--link); }
+
+.jwt-parts { display: none; }
+.jwt-parts.show { display: block; }
+
+.jwt-visual {
+  font-family: var(--font-mono); font-size: 0.8rem; word-break: break-all;
+  padding: 1rem; background: var(--bg); border-radius: 6px; margin-bottom: 1.5rem; line-height: 1.7;
+}
+.seg-header { color: var(--deny); }
+.seg-payload { color: var(--link); }
+.seg-sig { color: var(--warn); }
+
+.status-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.badge { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.4rem 0.8rem; border-radius: 6px; }
+.badge-ok { background: rgba(79,214,140,0.12); color: var(--allow); }
+.badge-bad { background: rgba(229,96,90,0.12); color: var(--deny); }
+.badge-warn { background: rgba(232,169,76,0.12); color: var(--warn); }
+
+.decode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 760px) { .decode-grid { grid-template-columns: 1fr; } }
+
+pre {
+  background: var(--bg); border: 1px solid var(--panel-line); border-radius: 6px;
+  padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; overflow-x: auto; margin: 0;
+  color: var(--text);
+}
+.claim-note { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+.verify-row { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+.verify-row input {
+  flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--panel-line);
+  border-radius: 6px; padding: 0.6rem 0.75rem; font-family: var(--font-mono); font-size: 0.85rem;
+}
+.verify-btn {
+  font-family: var(--font-mono); font-size: 0.85rem; background: var(--link); color: #0F1419;
+  border: none; padding: 0.6rem 1.1rem; border-radius: 6px; cursor: pointer; font-weight: 500;
+}
+.verify-btn:hover { background: #6FADE0; }
+.verify-result { margin-top: 0.75rem; font-family: var(--font-mono); font-size: 0.85rem; }
+.error-msg { color: var(--deny); font-family: var(--font-mono); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html#projects">← back to portfolio</a>
+  <h1>JWT Decoder & Validator</h1>
+  <p class="sub">Paste a JWT to inspect its header and claims, check time-based validity in plain language, and optionally verify an HS256 signature.</p>
+  <p class="privacy-note">🔒 Runs entirely in your browser — the token and any secret you enter never leave this page.</p>
+
+  <div class="panel">
+    <h2>Token input</h2>
+    <textarea id="jwtInput" placeholder="Paste a JWT here, e.g. eyJhbGciOi..."></textarea>
+    <button class="sample-btn" onclick="loadSample()">Load sample token</button>
+  </div>
+
+  <div class="jwt-parts" id="output">
+    <div class="panel">
+      <h2>Structure</h2>
+      <div class="jwt-visual" id="visual"></div>
+      <div class="status-badges" id="badges"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Decoded contents</h2>
+      <div class="decode-grid">
+        <div>
+          <div class="claim-note">HEADER</div>
+          <pre id="headerOut"></pre>
+        </div>
+        <div>
+          <div class="claim-note">PAYLOAD</div>
+          <pre id="payloadOut"></pre>
+        </div>
+      </div>
+      <div class="claim-note" id="timeNotes"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Verify signature (HS256 only)</h2>
+      <div class="verify-row">
+        <input type="text" id="secretInput" placeholder="Enter the HS256 secret to verify against">
+        <button class="verify-btn" onclick="verifySignature()">Verify</button>
+      </div>
+      <div class="verify-result" id="verifyResult"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="errorPanel" style="display:none;">
+    <p class="error-msg" id="errorMsg"></p>
+  </div>
+</div>
+
+<script>
+const SAMPLE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqLmNoZW4iLCJyb2xlIjoiZW5naW5lZXIiLCJpYXQiOjE3NTAwMDAwMDAsImV4cCI6MTc4MTAwMDAwMH0.5mFhZ5s4hW6Kk1XN9d0J6y7bQx2j3n8m1cQF4hR9tY0";
+
+function loadSample() {
+  document.getElementById('jwtInput').value = SAMPLE;
+  decode();
+}
+
+function base64UrlDecode(str) {
+  let s = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const decoded = atob(s);
+  try {
+    return decodeURIComponent(decoded.split('').map(c =>
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+  } catch (e) {
+    return decoded;
+  }
+}
+
+function base64UrlToUint8Array(str) {
+  let s = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const raw = atob(s);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+function fmtTime(unixSeconds) {
+  const d = new Date(unixSeconds * 1000);
+  return d.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+}
+
+function relTime(unixSeconds) {
+  const now = Date.now() / 1000;
+  const diff = unixSeconds - now;
+  const abs = Math.abs(diff);
+  const days = Math.floor(abs / 86400);
+  const hours = Math.floor((abs % 86400) / 3600);
+  let str = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+  return diff > 0 ? `in ${str}` : `${str} ago`;
+}
+
+let currentParts = null;
+
+function decode() {
+  const token = document.getElementById('jwtInput').value.trim();
+  const errorPanel = document.getElementById('errorPanel');
+  const output = document.getElementById('output');
+
+  if (!token) { output.classList.remove('show'); errorPanel.style.display = 'none'; return; }
+
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    errorPanel.style.display = 'block';
+    document.getElementById('errorMsg').textContent = 'Not a valid JWT — expected 3 dot-separated segments (header.payload.signature).';
+    output.classList.remove('show');
+    return;
+  }
+
+  let header, payload;
+  try {
+    header = JSON.parse(base64UrlDecode(parts[0]));
+    payload = JSON.parse(base64UrlDecode(parts[1]));
+  } catch (e) {
+    errorPanel.style.display = 'block';
+    document.getElementById('errorMsg').textContent = 'Could not decode token — segments are not valid base64url JSON.';
+    output.classList.remove('show');
+    return;
+  }
+
+  errorPanel.style.display = 'none';
+  output.classList.add('show');
+  currentParts = { parts, header, payload };
+
+  document.getElementById('visual').innerHTML =
+    `<span class="seg-header">${parts[0]}</span>.<span class="seg-payload">${parts[1]}</span>.<span class="seg-sig">${parts[2]}</span>`;
+
+  document.getElementById('headerOut').textContent = JSON.stringify(header, null, 2);
+  document.getElementById('payloadOut').textContent = JSON.stringify(payload, null, 2);
+
+  // Badges + time notes
+  const badges = [];
+  let timeNotes = [];
+  const now = Date.now() / 1000;
+
+  if (payload.exp) {
+    const expired = payload.exp < now;
+    badges.push(`<span class="badge ${expired ? 'badge-bad' : 'badge-ok'}">${expired ? 'EXPIRED' : 'NOT EXPIRED'}</span>`);
+    timeNotes.push(`exp: ${fmtTime(payload.exp)} (${relTime(payload.exp)})`);
+  } else {
+    badges.push(`<span class="badge badge-warn">NO EXP CLAIM</span>`);
+  }
+
+  if (payload.nbf) {
+    const notYetValid = payload.nbf > now;
+    badges.push(`<span class="badge ${notYetValid ? 'badge-warn' : 'badge-ok'}">${notYetValid ? 'NOT YET VALID' : 'NBF PASSED'}</span>`);
+    timeNotes.push(`nbf: ${fmtTime(payload.nbf)} (${relTime(payload.nbf)})`);
+  }
+
+  if (payload.iat) {
+    timeNotes.push(`iat: ${fmtTime(payload.iat)} (${relTime(payload.iat)})`);
+  }
+
+  badges.push(`<span class="badge badge-warn">alg: ${header.alg || 'unknown'}</span>`);
+
+  document.getElementById('badges').innerHTML = badges.join('');
+  document.getElementById('timeNotes').innerHTML = timeNotes.join('<br>');
+
+  document.getElementById('verifyResult').innerHTML = '';
+  document.getElementById('secretInput').value = '';
+}
+
+async function verifySignature() {
+  const resultEl = document.getElementById('verifyResult');
+  if (!currentParts) return;
+
+  if ((currentParts.header.alg || '').toUpperCase() !== 'HS256') {
+    resultEl.innerHTML = `<span class="badge badge-warn">Only HS256 verification is supported here — this token uses ${currentParts.header.alg}.</span>`;
+    return;
+  }
+
+  const secret = document.getElementById('secretInput').value;
+  if (!secret) { resultEl.textContent = 'Enter a secret to verify against.'; return; }
+
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const data = enc.encode(`${currentParts.parts[0]}.${currentParts.parts[1]}`);
+    const sigBuffer = await crypto.subtle.sign('HMAC', key, data);
+    const sigBytes = new Uint8Array(sigBuffer);
+
+    // base64url encode
+    let binary = '';
+    sigBytes.forEach(b => binary += String.fromCharCode(b));
+    const computed = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    const match = computed === currentParts.parts[2];
+    resultEl.innerHTML = match
+      ? `<span class="badge badge-ok">✓ SIGNATURE VALID for this secret</span>`
+      : `<span class="badge badge-bad">✕ SIGNATURE DOES NOT MATCH</span>`;
+  } catch (e) {
+    resultEl.innerHTML = `<span class="badge badge-bad">Verification failed: ${e.message}</span>`;
+  }
+}
+
+document.getElementById('jwtInput').addEventListener('input', decode);
+</script>
+</body>
+</html>
