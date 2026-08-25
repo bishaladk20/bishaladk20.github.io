@@ -26,20 +26,16 @@ and it works with zero setup.
 
 ---
 
-## 2. Two things you need to fill in before publishing
+## 2. Current status
 
-I couldn't pull these from the PDF, so they're placeholders right now:
+LinkedIn is filled in (`linkedin.com/in/bishaladhikari7`), and the résumé
+content — name, phone, email, location, all three roles, every bullet point,
+every certification, both degrees — was pulled directly from your latest
+uploaded résumé (v6).
 
-1. **Your LinkedIn URL.** Open `index.html`, search for `linkedin.com/in/your-profile`
-   and the two `href="#"` links near it (one in the hero contact line, one in
-   the Contact section directory card). Replace `#` with your real profile URL,
-   e.g. `https://www.linkedin.com/in/bishaladhikari`.
-2. **Optional: a profile photo.** The current design intentionally doesn't
-   use one (the hero uses a live "identity events" panel instead), but if
-   you'd like one added to the About section, just say so and I'll wire it in.
-
-Everything else — name, phone, email, all three roles, every bullet point,
-every certification — was pulled directly from your uploaded résumé.
+**Optional: a profile photo.** The current design intentionally doesn't use
+one (the hero uses a live "identity events" panel instead), but if you'd
+like one added to the About section, just say so and it can be wired in.
 
 ---
 
